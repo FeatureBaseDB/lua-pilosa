@@ -1,4 +1,5 @@
 local Object = require "pilosa.classic"
+local QueryResponse = require "pilosa.response".QueryResponse
 local json = require "dkjson"
 local http = require "socket.http"
 local ltn12 = require "ltn12"
@@ -15,8 +16,11 @@ local PATTERN_PORT = "^:([0-9]+)$"
 local PATTERN_HOST = "^([0-9a-z.-]+)$"
 local NO_RESPONSE = 0
 local RAW_RESPONSE = 1
+local HTTP_CONFLICT = 409
 
-PilosaClient = Object:extend()
+local QueryOptions = Object:extend()
+local PilosaClient = Object:extend()
+local URI = Object:extend()
 
 function PilosaClient:new(uri, options)
     self.uri = uri or URI:default()
@@ -24,60 +28,73 @@ function PilosaClient:new(uri, options)
 end
 
 function PilosaClient:query(query, options)
+    options = QueryOptions(options)
     local data = query:serialize()
-    local path = string.format("/index/%s/query", query.index.name)
-    local response = httpRequest(self, "POST", path, data, nil, RAW_RESPONSE)
-    return response
+    local path = string.format("/index/%s/query%s", query.index.name, options:encode())
+    local response = httpRequest(self, "POST", path, data)
+    return QueryResponse(response)
 end
 
 function PilosaClient:createIndex(index)
     local data = setmetatable(index.options or {}, {__jsontype = "object"})
     local path = string.format("/index/%s", index.name)
-    httpRequest(self, "POST", path, json.encode(data), nil, NO_RESPONSE)
+    httpRequest(self, "POST", path, json.encode(data))
 end
 
 function PilosaClient:ensureIndex(index)
-    self:createIndex(index)
+    local response, err = pcall(function() self:createIndex(index) end)
+    if err ~= nil and err.code ~= HTTP_CONFLICT then
+        error(err)
+    end
 end
 
 function PilosaClient:createFrame(frame)
     local data = setmetatable(frame.options or {}, {__jsontype = "object"})
     local path = string.format("/index/%s/frame/%s", frame.index.name, frame.name)
-    httpRequest(self, "POST", path, json.encode(data), nil, NO_RESPONSE)
+    httpRequest(self, "POST", path, json.encode(data))
 end
 
 function PilosaClient:ensureFrame(frame)
-    self:createFrame(frame)
+    local response, err = pcall(function() self:createFrame(frame) end)
+    if err ~= nil and err.code ~= HTTP_CONFLICT then
+        error(err)
+    end
 end
 
-function httpRequest(client, method, path, data, headers, returnResponse)
-    local url = string.format("%s%s", client.uri:normalize(), path)
+function httpRequest(client, method, path, data)
     data = data or ""
-    headers = headers or {}
-    headers["content-length"] = #data
-    headers["content-type"] = "application/json"
-    headers["accept"] = "application/json"
-
+    local url = string.format("%s%s", client.uri:normalize(), path)
     local chunks = {}
-    local sink = nil
-    if returnResponse ~= NO_RESPONSE then
-        sink = ltn12.sink.table(chunks)
-    end
-    response, status, responseHeaders = http.request{
+
+    local r, status = http.request{
         url=url,
         method=method,
         source=ltn12.source.string(data),
-        sink=sink,
-        headers=headers
+        sink=ltn12.sink.table(chunks),
+        headers=getHeaders(data)
     }
 
-    if returnResponse == RAW_RESPONSE then
-        return response, status, responseHeaders
+    if r == nil then
+        -- status contains the error string
+        error({error=status, code=0})
     end
+
+    local response = table.concat(chunks)
+
+    if status < 200 or status >= 300 then
+        error({error=response, code=status})
+    end
+
     return response
 end
 
-URI = Object:extend()
+function getHeaders(data)
+    return {
+        ["content-length"] = #data,
+        ["content-type"] = "application/json",
+        ["accept"] = "application/json"
+    }
+end
 
 function URI:new(scheme, host, port)
     self.scheme = scheme
@@ -137,7 +154,30 @@ function parseAddress(address)
     error("Not a Pilosa URI")
 end
 
+function QueryOptions:new(options)
+    options = options or {}
+    self.options = {
+        columnAttrs = options.columnAttributes == true,
+        excludeAttrs = options.excludeAttributes == true,
+        excludeBits = options.excludeBits == true
+    }
+end
+
+function QueryOptions:encode()
+    local parts = {}
+    for k, v in pairs(self.options) do
+        if v then
+            table.insert(parts, string.format("%s=%s", k, tostring(v)))
+        end
+    end
+    if #parts == 0 then
+        return ""
+    end
+    return string.format("?%s", table.concat(parts, "&"))
+end
+
 return {
     URI = URI,
-    PilosaClient = PilosaClient
+    PilosaClient = PilosaClient,
+    QueryOptions = QueryOptions
 }

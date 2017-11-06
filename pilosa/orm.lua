@@ -1,26 +1,54 @@
-
+local validator = require "pilosa.validator"
 local Object = require "pilosa.classic"
 
-Schema = Object:extend()
+local Schema = Object:extend()
+local Index = Object:extend()
+local Frame = Object:extend()
+local PQLQuery = Object:extend()
+local PQLBatchQuery = Object:extend()
+
+local TimeQuantum = {
+    NONE = "",
+    YEAR = "Y",
+    MONTH = "M",
+    DAY = "D",
+    HOUR = "H",
+    YEAR_MONTH = "YM",
+    MONTH_DAY = "MD",
+    DAY_HOUR = "DH",
+    YEAR_MONTH_DAY = "YMD",
+    MONTH_DAY_HOUR = "MDH",
+    YEAR_MONTH_DAY_HOUR = "YMDH"
+}
+
+local CacheType = {
+    DEFAULT = "",
+    LRU = "lru",
+    RANKED = "ranked"
+}
+
+local TIME_FORMAT = "%Y-%m-%dT%H:%M"
 
 function Schema:new()
     self.indexes = {}
 end
 
-function Schema:index(name)
+function Schema:index(name, options)
     index = self.indexes[name]
     if index == nil then
-        index = Index(name)
+        index = Index(name, options)
         self.indexes[name] = index
     end
     return index
 end
 
-Index = Object:extend()
-
 function Index:new(name, options)
+    validator.ensureValidIndexName(name)
     self.name = name
-    self.options = options or {}
+    options = options or {}
+    self.options = {
+        timeQuantum = options.timeQuantum or TimeQuantum.NONE
+    }
     -- frames is a weak table
     self.frames = {}
     setmetatable(self.frames, { __mode = "v" })
@@ -43,21 +71,50 @@ function Index:batchQuery(...)
     return PQLBatchQuery(self, unpack(arg))
 end
 
-Frame = Object:extend()
+function Index:union(...)
+    return bitmapOp(self, "Union", unpack(arg))
+end
+
+function bitmapOp(index, name, ...)
+    local serializedArgs = {}
+    for i, a in ipairs(arg) do
+        table.insert(serializedArgs, a:serialize())
+    end
+    local pql = string.format("%s(%s)", name, table.concat(serializedArgs, ", "))
+    return PQLQuery(index, pql)
+end
 
 function Frame:new(index, name, options)
+    validator.ensureValidFrameName(name)
     self.index = index
     self.name = name
-    self.options = options or {}
+    options = options or {}
+    self.options = {
+        timeQuantum = options.timeQuantum or TimeQuantum.NONE,
+        inverseEnabled = options.inverseEnabled or false,
+        cacheType = options.cacheType or CacheType.DEFAULT,
+        cacheSize = options.cacheSize or 0
+    }
 end
 
 function Frame:setbit(rowID, columnID, timestamp)
     local ts = ""
-    local query = string.format("SetBit(frame='%s', rowID=%d, columnID=%d%s)", self.name, rowID, columnID, ts)
+    if timestamp ~= nil then
+        ts = string.format(", timestamp='%s'", os.date(TIME_FORMAT, timestamp))
+    end
+    local query = string.format("SetBit(rowID=%d, frame='%s', columnID=%d%s)", rowID, self.name, columnID, ts)
     return PQLQuery(self.index, query)
 end
 
-PQLQuery = Object:extend()
+function Frame:bitmap(rowID)
+    local query = string.format("Bitmap(rowID=%d, frame='%s')", rowID, self.name)
+    return PQLQuery(self.index, query)
+end
+
+function Frame:inverseBitmap(columnID)
+    local query = string.format("Bitmap(columnID=%d, frame='%s')", columnID, self.name)
+    return PQLQuery(self.index, query)
+end
 
 function PQLQuery:new(index, pql)
     self.pql = pql
@@ -68,10 +125,8 @@ function PQLQuery:serialize()
     return self.pql
 end
 
-PQLBatchQuery = Object:extend()
-
 function PQLBatchQuery:new(index, ...)
-    queries = {}
+    local queries = {}
     for i, v in ipairs(arg) do
         table.insert(queries, v:serialize())
     end
@@ -91,5 +146,7 @@ function schema()
 end
 
 return {
-    schema = schema
+    schema = schema,
+    TimeQuantum = TimeQuantum,
+    CacheType = CacheType
 }

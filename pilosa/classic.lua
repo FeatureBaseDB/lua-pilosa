@@ -30,34 +30,6 @@ function Object:extend()
 end
 
 
-function Object:implement(...)
-  for _, cls in pairs({...}) do
-    for k, v in pairs(cls) do
-      if self[k] == nil and type(v) == "function" then
-        self[k] = v
-      end
-    end
-  end
-end
-
-
-function Object:is(T)
-  local mt = getmetatable(self)
-  while mt do
-    if mt == T then
-      return true
-    end
-    mt = getmetatable(mt)
-  end
-  return false
-end
-
-
-function Object:__tostring()
-  return "Object"
-end
-
-
 function Object:__call(...)
   local obj = setmetatable({}, self)
   obj:new(...)
