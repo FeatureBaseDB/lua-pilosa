@@ -1,5 +1,6 @@
 local Object = require "pilosa.classic"
 local QueryResponse = require "pilosa.response".QueryResponse
+local orm = require "pilosa.orm"
 local json = require "dkjson"
 local http = require "socket.http"
 local ltn12 = require "ltn12"
@@ -36,9 +37,11 @@ function PilosaClient:query(query, options)
 end
 
 function PilosaClient:createIndex(index)
-    local data = setmetatable(index.options or {}, {__jsontype = "object"})
     local path = string.format("/index/%s", index.name)
-    httpRequest(self, "POST", path, json.encode(data))
+    httpRequest(self, "POST", path, "{}")
+    if index.timeQuantum ~= orm.TimeQuantum.NONE then
+        patchIndexTimeQuantum(self, index)
+    end
 end
 
 function PilosaClient:ensureIndex(index)
@@ -49,7 +52,7 @@ function PilosaClient:ensureIndex(index)
 end
 
 function PilosaClient:createFrame(frame)
-    local data = setmetatable(frame.options or {}, {__jsontype = "object"})
+    local data = {options = frame.options}
     local path = string.format("/index/%s/frame/%s", frame.index.name, frame.name)
     httpRequest(self, "POST", path, json.encode(data))
 end
@@ -58,6 +61,70 @@ function PilosaClient:ensureFrame(frame)
     local response, err = pcall(function() self:createFrame(frame) end)
     if err ~= nil and err.code ~= HTTP_CONFLICT then
         error(err)
+    end
+end
+
+function PilosaClient:deleteIndex(index)
+    local path = string.format("/index/%s", index.name)
+    httpRequest(self, "DELETE", path)
+end
+
+function PilosaClient:deleteFrame(index)
+    local path = string.format("/index/%s/frame/%s", frame.index.name, frame.name)
+    httpRequest(self, "DELETE", path)
+end    
+
+function PilosaClient:status()
+    local response = httpRequest(self, "GET", "/status")
+    return json.decode(response)["status"]
+end
+
+function PilosaClient:schema()
+    local status = self:status()
+    local nodes = status["Nodes"]
+    local schema = orm.schema()
+    for i, indexInfo in ipairs(nodes[1]["Indexes"] or {}) do
+        local meta = indexInfo["Meta"]
+        local index = schema:index(indexInfo["Name"], {
+            timeQuantum = meta["TimeQuantum"] or orm.TimeQuantum.NONE
+        })
+        for i, frameInfo in ipairs(indexInfo["Frames"] or {}) do
+            meta = frameInfo["Meta"]
+            index:frame(frameInfo["Name"], {
+                cacheSize = meta["CacheSize"],
+                cacheType = meta["CacheType"],
+                inverseEnabled = meta["InverseEnabled"] or false,
+                timeQuantum = meta["TimeQuantum"] or orm.TimeQuantum.NONE
+            })
+        end
+    end
+    return schema
+end
+
+function PilosaClient:syncSchema(schema)
+    local serverSchema = self:schema()
+    -- find out local - remote schema
+    local diffSchema = schema:diff(serverSchema)
+    -- create indexes and frames which doesn't exist on the server side
+    for indexName, index in pairs(diffSchema.indexes) do
+        if serverSchema.indexes[indexName] == nil then
+            self:ensureIndex(index)
+        end
+        for frameName, frame in pairs(index.frames) do
+            self:ensureFrame(frame)
+        end
+    end
+    -- find out remote - local schema
+    diffSchema = serverSchema:diff(schema)
+    for indexName, index in pairs(diffSchema.indexes) do
+        local localIndex = schema.indexes[indexName]
+        if localIndex == nil then
+            schema.indexes[indexName] = index
+        else
+            for frameName, frame in pairs(index.frames) do
+                localIndex.frames[frameName] = frame
+            end
+        end
     end
 end
 
@@ -86,6 +153,12 @@ function httpRequest(client, method, path, data)
     end
 
     return response
+end
+
+function patchIndexTimeQuantum(client, index)
+    local path = string.format("/index/%s/time-quantum", index.name)
+    local data = json.encode({timeQuantum=index.timeQuantum})
+    httpRequest(client, "PATCH", path, data)
 end
 
 function getHeaders(data)

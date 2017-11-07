@@ -42,16 +42,53 @@ function Schema:index(name, options)
     return index
 end
 
+function Schema:diff(otherSchema)
+    local result = Schema()
+    for indexName, index in pairs(self.indexes) do
+        if otherSchema.indexes[indexName] == nil then
+            -- if the index doesn't exist in the other schema, simply copy it
+            result.indexes[indexName] = index:copy()
+        else
+            -- the index exists in the other schema; check the frames
+            local resultIndex = index:copy(false)
+            local resultIndexUpdated = false
+            for frameName, frame in pairs(index.frames) do
+                -- if the frame doesn't exist in the other scheme, copy it
+                if resultIndex.frames[frameName] == nil then
+                    resultIndex.frames[frameName] = frame:copy()
+                    resultIndexUpdated = true
+                end
+            end
+            -- check whether we modified result index
+            if resultIndexUpdated then
+                result.indexes[indexName] = resultIndex
+            end
+        end
+    end
+    return result
+end
+
 function Index:new(name, options)
     validator.ensureValidIndexName(name)
     self.name = name
     options = options or {}
-    self.options = {
-        timeQuantum = options.timeQuantum or TimeQuantum.NONE
-    }
+    self.timeQuantum = options.timeQuantum or TimeQuantum.NONE
     -- frames is a weak table
     self.frames = {}
     setmetatable(self.frames, { __mode = "v" })
+end
+
+function Index:copy(copyFrames)
+    if copyFrames == nil then
+        copyFrames = true
+    end
+    local clone = Index(self.name, {timeQuantum = self.timeQuantum})
+    if copyFrames then
+        for frameName, frame in pairs(self.frames) do
+            clone.frames[frameName] = frame:copy()
+        end
+    end
+    return clone
 end
 
 function Index:frame(name, options)
@@ -95,6 +132,15 @@ function Frame:new(index, name, options)
         cacheType = options.cacheType or CacheType.DEFAULT,
         cacheSize = options.cacheSize or 0
     }
+end
+
+function Frame:copy()
+    return Frame(self.index, self.name, {
+        timeQuantum = self.options.timeQuantum,
+        inverseEnabled = self.options.inverseEnabled,
+        cacheType = self.options.cacheType,
+        cacheSize = self.options.cacheSize
+    })
 end
 
 function Frame:setbit(rowID, columnID, timestamp)

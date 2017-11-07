@@ -11,6 +11,29 @@ describe("Schema", function()
         -- schema should return the same index instance for the same name
         assert.equals(index, index2)
     end)
+
+    it("can diff another schema", function()
+        local schema1 = orm.schema()
+        local index11 = schema1:index("diff-index1")
+        index11:frame("frame1-1")
+        index11:frame("frame1-2")
+        local index12 = schema1:index("diff-index2")
+        index12:frame("frame2-1")
+
+        local schema2 = orm.schema()
+        local index21 = schema2:index("diff-index1")
+        index21:frame("another-frame")
+
+        local targetDiff12 = orm.schema()
+        local targetIndex1 = targetDiff12:index("diff-index1")
+        targetIndex1:frame("frame1-1")
+        targetIndex1:frame("frame1-2")
+        local targetIndex2 = targetDiff12:index("diff-index2")
+        targetIndex2:frame("frame2-1")
+
+        local diff12 = schema1:diff(schema2)
+        assert.same(targetDiff12, diff12)
+    end)
 end)
 
 describe("Index", function()
@@ -39,9 +62,35 @@ describe("Index", function()
         local target = "Union(Bitmap(rowID=10, frame='sample-frame'), Bitmap(rowID=20, frame='sample-frame'))"
         assert.same(target, q:serialize())
     end)
+
+    it("can deep copy", function()
+        local s1 = orm.schema()
+        local i1 = s1:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
+        local f11 = i1:frame("frame-11")
+        local f12 = i1:frame("frame-12")
+        assert.same(i1, i1:copy())
+
+        local s2 = orm.schema()
+        local i2 = s2:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
+        assert.same(i2, i1:copy(false))
+
+    end)
 end)
 
 describe("Frame", function()
+    it("can deep copy", function()
+        local s1 = orm.schema()
+        local i1 = s1:index("index-1")
+        local f11 = i1:frame("frame-11", {
+            inverseEnabled=true,            
+            timeQuantum=orm.TimeQuantum.YEAR_MONTH_DAY,
+            cacheType=orm.CacheType.RANKED,
+            cacheSize=100
+        })
+        local clone = f11:copy()
+        assert.same(f11, clone)
+    end)
+
     it("can create bitmap query", function()
         local q = frame:bitmap(5)
         assert.same("Bitmap(rowID=5, frame='sample-frame')", q:serialize())
