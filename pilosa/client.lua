@@ -39,9 +39,6 @@ end
 function PilosaClient:createIndex(index)
     local path = string.format("/index/%s", index.name)
     httpRequest(self, "POST", path, "{}")
-    if index.timeQuantum ~= orm.TimeQuantum.NONE then
-        patchIndexTimeQuantum(self, index)
-    end
 end
 
 function PilosaClient:ensureIndex(index)
@@ -85,9 +82,7 @@ function PilosaClient:schema()
     local schema = orm.schema()
     for i, indexInfo in ipairs(nodes[1]["Indexes"] or {}) do
         local meta = indexInfo["Meta"]
-        local index = schema:index(indexInfo["Name"], {
-            timeQuantum = meta["TimeQuantum"] or orm.TimeQuantum.NONE
-        })
+        local index = schema:index(indexInfo["Name"])
         for i, frameInfo in ipairs(indexInfo["Frames"] or {}) do
             meta = frameInfo["Meta"]
             index:frame(frameInfo["Name"], {
@@ -153,12 +148,6 @@ function httpRequest(client, method, path, data)
     end
 
     return response
-end
-
-function patchIndexTimeQuantum(client, index)
-    local path = string.format("/index/%s/time-quantum", index.name)
-    local data = json.encode({timeQuantum=index.timeQuantum})
-    httpRequest(client, "PATCH", path, data)
 end
 
 function getHeaders(data)

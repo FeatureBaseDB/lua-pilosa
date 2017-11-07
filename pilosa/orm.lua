@@ -33,10 +33,10 @@ function Schema:new()
     self.indexes = {}
 end
 
-function Schema:index(name, options)
+function Schema:index(name)
     index = self.indexes[name]
     if index == nil then
-        index = Index(name, options)
+        index = Index(name)
         self.indexes[name] = index
     end
     return index
@@ -68,11 +68,9 @@ function Schema:diff(otherSchema)
     return result
 end
 
-function Index:new(name, options)
+function Index:new(name)
     validator.ensureValidIndexName(name)
     self.name = name
-    options = options or {}
-    self.timeQuantum = options.timeQuantum or TimeQuantum.NONE
     -- frames is a weak table
     self.frames = {}
     setmetatable(self.frames, { __mode = "v" })
@@ -82,7 +80,7 @@ function Index:copy(copyFrames)
     if copyFrames == nil then
         copyFrames = true
     end
-    local clone = Index(self.name, {timeQuantum = self.timeQuantum})
+    local clone = Index(self.name)
     if copyFrames then
         for frameName, frame in pairs(self.frames) do
             clone.frames[frameName] = frame:copy()
