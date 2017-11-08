@@ -110,6 +110,36 @@ function Index:union(...)
     return bitmapOp(self, "Union", unpack(arg))
 end
 
+function Index:intersect(...)
+    if #arg < 1 then
+        error("Number of bitmap queries should be greater than or equal to 1")
+    end
+    return bitmapOp(self, "Intersect", unpack(arg))
+end
+
+function Index:difference(...)
+    if #arg < 1 then
+        error("Number of bitmap queries should be greater than or equal to 1")
+    end
+    return bitmapOp(self, "Difference", unpack(arg))
+end
+
+function Index:xor(...)
+    if #arg < 2 then
+        error("Number of bitmap queries should be greater than or equal to 2")
+    end
+    return bitmapOp(self, "Xor", unpack(arg))
+end
+
+function Index:count(bitmap)
+    return PQLQuery(self, string.format("Count(%s)", bitmap:serialize()))
+end
+
+function Index:setColumnAttrs(columnID, attrs)
+    local query = string.format("SetColumnAttrs(columnID=%d, %s)", columnID, createAttributesString(attrs))
+    return PQLQuery(self, query)
+end
+
 function bitmapOp(index, name, ...)
     local serializedArgs = {}
     for i, a in ipairs(arg) do
@@ -117,6 +147,16 @@ function bitmapOp(index, name, ...)
     end
     local pql = string.format("%s(%s)", name, table.concat(serializedArgs, ", "))
     return PQLQuery(index, pql)
+end
+
+function createAttributesString(attrs)
+    attrs = attrs or {}
+    local attrsList = {}
+    for k, v in pairs(attrs) do
+        validator.ensureValidLabel(k)
+        table.insert(attrsList, string.format("%s=%s", k, json.encode(v)))
+    end
+    return table.concat(attrsList)
 end
 
 function Frame:new(index, name, options)
@@ -141,6 +181,16 @@ function Frame:copy()
     })
 end
 
+function Frame:bitmap(rowID)
+    local query = string.format("Bitmap(rowID=%d, frame='%s')", rowID, self.name)
+    return PQLQuery(self.index, query)
+end
+
+function Frame:inverseBitmap(columnID)
+    local query = string.format("Bitmap(columnID=%d, frame='%s')", columnID, self.name)
+    return PQLQuery(self.index, query)
+end
+
 function Frame:setbit(rowID, columnID, timestamp)
     local ts = ""
     if timestamp ~= nil then
@@ -150,14 +200,56 @@ function Frame:setbit(rowID, columnID, timestamp)
     return PQLQuery(self.index, query)
 end
 
-function Frame:bitmap(rowID)
-    local query = string.format("Bitmap(rowID=%d, frame='%s')", rowID, self.name)
+function Frame:clearbit(rowID, columnID)
+    local query = string.format("ClearBit(rowID=%d, frame='%s', columnID=%d)", rowID, self.name, columnID)
     return PQLQuery(self.index, query)
 end
 
-function Frame:inverseBitmap(columnID)
-    local query = string.format("Bitmap(columnID=%d, frame='%s')", columnID, self.name)
-    return PQLQuery(self.index, query)
+function Frame:topn(n, bitmap)
+    return topn(self, n, bitmap, false)
+end
+
+function Frame:inverseTopn(n, bitmap)
+    return topn(self, n, bitmap, true)
+end
+
+function Frame:range(rowID, startTimestamp, endTimestamp)
+    return range(self, "rowID", rowID, startTimestamp, endTimestamp)
+end
+
+function Frame:inverseRange(columnID, startTimestamp, endTimestamp)
+    return range(self, "columnID", columnID, startTimestamp, endTimestamp)
+end
+
+function Frame:setRowAttrs(rowID, attrs)
+    local query = string.format("SetRowAttrs(rowID=%d, frame='%s', %s)",
+        rowID, self.name, createAttributesString(attrs))
+    return PQLQuery(self, query)
+end
+
+function topn(frame, n, bitmap, inverse)
+    local inverseStr = "false"
+    if inverse then
+        inverseStr = true
+    end
+    local parts = {
+        string.format("frame='%s'", frame.name),
+        string.format("n=%d", n),
+        string.format("inverse=%s", inverseStr)
+    }
+    if bitmap ~= nil then
+        table.insert(parts, 1, bitmap:serialize())
+    end
+    local query = string.format("TopN(%s)", table.concat(parts, ","))
+    return PQLQuery(frame.index, query)
+end
+
+function range(frame, label, rowColumnID, startTimestamp, endTimestamp)
+    local startStr = os.date(TIME_FORMAT, startTimestamp)
+    local endStr = os.date(TIME_FORMAT, endTimestamp)
+    local query = string.format("Range(%s=%d, frame='%s', start='%s', end='%s')",
+        label, rowColumnID, frame.name, startStr, endStr)
+    return PQLQuery(frame.index, query)
 end
 
 function PQLQuery:new(index, pql)
