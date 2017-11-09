@@ -20,4 +20,9 @@ goto :end
     busted tests integration-tests
     goto :end
 
+:cover
+    busted --coverage tests integration-tests
+    type luacov.report.out
+    goto :end
+
 :end

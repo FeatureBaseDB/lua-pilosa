@@ -48,8 +48,6 @@ local PATTERN_HOST_PORT = "^([0-9a-z.-]+):([0-9]+)$"
 local PATTERN_SCHEME = "^([+a-z]+)://$"
 local PATTERN_PORT = "^:([0-9]+)$"
 local PATTERN_HOST = "^([0-9a-z.-]+)$"
-local NO_RESPONSE = 0
-local RAW_RESPONSE = 1
 local HTTP_CONFLICT = 409
 
 local QueryOptions = Object:extend()
@@ -112,7 +110,7 @@ end
 function PilosaClient:schema()
     local status = self:status()
     local nodes = status["Nodes"]
-    local schema = orm.schema()
+    local schema = orm.Schema()
     for i, indexInfo in ipairs(nodes[1]["Indexes"] or {}) do
         local meta = indexInfo["Meta"]
         local index = schema:index(indexInfo["Name"])
@@ -185,6 +183,7 @@ end
 
 function getHeaders(data)
     return {
+        -- Content Length is the size of the data
         ["content-length"] = #data,
         ["content-type"] = "application/json",
         ["accept"] = "application/json"

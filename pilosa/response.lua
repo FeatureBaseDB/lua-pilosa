@@ -53,14 +53,19 @@ function QueryResponse:new(response)
 end
 
 function QueryResult:new(result)
+    -- SetBit and ClearBit returns boolean values. We currently do not store them in the response.
     if result == true then
         result = {}
     else
         result = result or {}
     end
+    -- Queries such as Bitmap, Union, etc. return bitmap results
     self.bitmap = BitmapResult(result)
+    -- Count and Sum queries return the count
     self.count = result.count or 0
+    -- Sum query returns the sum
     self.sum = result.sum or 0
+    -- TopN returns a list of (ID, count) pairs. We call each of them count result item.
     local countItems = {}
     if #result > 0 and result[1].id ~= nil and result[1].count ~= nil then
         for i, item in ipairs(result) do

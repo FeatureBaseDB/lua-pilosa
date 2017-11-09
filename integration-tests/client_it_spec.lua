@@ -37,7 +37,7 @@ local orm = require "pilosa.orm"
 
 describe("PilosaClient", function()
     local client = getClient()
-    local schema = orm.schema()
+    local schema = orm.Schema()
     local index = schema:index("test-index")
     local frame = index:frame("test-frame")
 
@@ -74,7 +74,7 @@ describe("PilosaClient", function()
     
     it("can sync the schema", function()
         local client = getClient()
-        local schema1 = orm.schema()
+        local schema1 = orm.Schema()
         local remoteIndex = schema1:index("remote-index-1")
         local remoteFrame = remoteIndex:frame("remote-frame-1")
         local index11 = schema1:index("diff-index1")

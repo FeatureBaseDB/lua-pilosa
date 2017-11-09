@@ -307,15 +307,12 @@ function PQLBatchQuery:add(query)
 end
 
 function PQLBatchQuery:serialize()
+    -- concatenate serialized queries as a string
     return table.concat(self.queries)
 end
 
-function schema()
-    return Schema()
-end
-
 return {
-    schema = schema,
+    Schema = Schema,
     TimeQuantum = TimeQuantum,
     CacheType = CacheType
 }

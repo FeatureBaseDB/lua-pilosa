@@ -32,7 +32,7 @@
 
 
 local orm = require "pilosa.orm"
-local schema = orm.schema()
+local schema = orm.Schema()
 local index = schema:index("sample-index")
 local frame = index:frame("sample-frame")
 
@@ -45,18 +45,18 @@ describe("Schema", function()
     end)
 
     it("can diff another schema", function()
-        local schema1 = orm.schema()
+        local schema1 = orm.Schema()
         local index11 = schema1:index("diff-index1")
         index11:frame("frame1-1")
         index11:frame("frame1-2")
         local index12 = schema1:index("diff-index2")
         index12:frame("frame2-1")
 
-        local schema2 = orm.schema()
+        local schema2 = orm.Schema()
         local index21 = schema2:index("diff-index1")
         index21:frame("another-frame")
 
-        local targetDiff12 = orm.schema()
+        local targetDiff12 = orm.Schema()
         local targetIndex1 = targetDiff12:index("diff-index1")
         targetIndex1:frame("frame1-1")
         targetIndex1:frame("frame1-2")
@@ -96,13 +96,13 @@ describe("Index", function()
     end)
 
     it("can deep copy", function()
-        local s1 = orm.schema()
+        local s1 = orm.Schema()
         local i1 = s1:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
         local f11 = i1:frame("frame-11")
         local f12 = i1:frame("frame-12")
         assert.same(i1, i1:copy())
 
-        local s2 = orm.schema()
+        local s2 = orm.Schema()
         local i2 = s2:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
         assert.same(i2, i1:copy(false))
 
@@ -111,7 +111,7 @@ end)
 
 describe("Frame", function()
     it("can deep copy", function()
-        local s1 = orm.schema()
+        local s1 = orm.Schema()
         local i1 = s1:index("index-1")
         local f11 = i1:frame("frame-11", {
             inverseEnabled=true,            
