@@ -1,7 +1,7 @@
 package = "Pilosa"
-version = "0.1.0-2"
+version = "0.1.0-3"
 source = {
-   url = "https://github.com/pilosa/lua-pilosa",
+   url = "git://github.com/pilosa/lua-pilosa",
    tag = "v0.1.0"
 }
 description = {
@@ -15,7 +15,7 @@ description = {
 dependencies = {
    "lua >= 5.1, < 5.4",
    "luasocket >= 3.0rc1-2",
-   "busted >= 2.0.rc12-1"
+   "dkjson >= 2.5-2"
 }
 build = {
    type = "builtin",

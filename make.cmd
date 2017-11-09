@@ -22,6 +22,7 @@ goto :end
 
 :cover
     busted --coverage tests integration-tests
+    luacov pilosa/*.lua
     type luacov.report.out
     goto :end
 
