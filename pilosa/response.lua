@@ -31,10 +31,8 @@
 -- DAMAGE.
 
 
-local Object = require "pilosa.classic"
-local inspect = require 'inspect'
 local json = require "dkjson"
-
+local Object = require "pilosa.classic"
 local QueryResponse = Object:extend()
 local QueryResult = Object:extend()
 local BitmapResult = Object:extend()
