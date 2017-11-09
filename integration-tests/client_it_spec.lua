@@ -58,9 +58,12 @@ describe("PilosaClient", function()
 
     it("can send a query", function()
         local client = getClient()
-        local response, err = client:query(frame:setbit(555, 10))
-        assert.Nil(err)
-        assert.True(response.result ~= nil)
+        client:query(frame:setbit(10, 20))        
+        local response1 = client:query(frame:bitmap(10))
+        local bitmap = response1.result.bitmap
+        assert.equals(0, #bitmap.attributes)
+        assert.equals(1, table.getn(bitmap.bits))
+        assert.same(20, bitmap.bits[1])
     end)
 
     it("can read status", function()
