@@ -1,7 +1,8 @@
 package = "Pilosa"
 version = "0.1.0"
 source = {
-   url = "https://github.com/pilosa/lua-pilosa"
+   url = "https://github.com/pilosa/lua-pilosa",
+   tag = "v0.1.0"
 }
 description = {
    summary = "Experimental client for Pilosa distributed bitmap index",
