@@ -31,6 +31,7 @@
 -- DAMAGE.
 
 
+local json = require ("dkjson")
 local validator = require "pilosa.validator"
 local Object = require "pilosa.classic"
 

@@ -4,12 +4,11 @@
 
 <img src="https://www.pilosa.com/img/le.svg" style="float: right" align="right" height="301">
 
-Experimental Lua client for Pilosa high performance distributed bitmap index. See this article for more information: https://www.pilosa.com/blog/writing-a-client-library/
+Lua client for Pilosa high performance distributed bitmap index. See this article for more information: https://www.pilosa.com/blog/writing-a-client-library/
 
-## Change Log
-* **v0.1.0** (2017-11-09):
-    * Initial version.
-    * Supports Pilosa Server v0.7.1.
+## What's New?
+
+See: [CHANGELOG](CHANGELOG.md)
 
 ## Requirements
 

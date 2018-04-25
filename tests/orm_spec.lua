@@ -81,13 +81,13 @@ describe("Index", function()
         assert.equals(frame, frame2)
     end)
 
-    it("index can create raw query", function()
+    it("can create raw query", function()
         local q = index:rawQuery("No validation whatsoever for raw queries")
         assert.same("No validation whatsoever for raw queries", q:serialize())
         assert.equals(index, q.index)
     end)
 
-    it("index can create Union query", function()
+    it("can create Union query", function()
         local b1 = sampleFrame:bitmap(10)
         local b2 = sampleFrame:bitmap(20)
         local q = sampleIndex:union(b1, b2)
@@ -95,17 +95,74 @@ describe("Index", function()
         assert.same(target, q:serialize())
     end)
 
+    it("can create Intersect query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local b2 = sampleFrame:bitmap(20)
+        local q = sampleIndex:intersect(b1, b2)
+        local target = "Intersect(Bitmap(rowID=10, frame='sample-frame'), Bitmap(rowID=20, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("cannot create Intersect query with no arguments", function()
+        assert.has_errors(function()sampleIndex:intersect() end)
+    end)
+
+    it("can create Difference query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local b2 = sampleFrame:bitmap(20)
+        local q = sampleIndex:difference(b1, b2)
+        local target = "Difference(Bitmap(rowID=10, frame='sample-frame'), Bitmap(rowID=20, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("cannot create Difference query with no arguments", function()
+        assert.has_errors(function()sampleIndex:difference() end)
+    end)
+
+    it("can create Xor query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local b2 = sampleFrame:bitmap(20)
+        local q = sampleIndex:xor(b1, b2)
+        local target = "Xor(Bitmap(rowID=10, frame='sample-frame'), Bitmap(rowID=20, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("cannot create Xor query with no arguments", function()
+        assert.has_errors(function()sampleIndex:xor() end)
+    end)
+
+    it("can create Count query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local q = sampleIndex:count(b1)
+        local target = "Count(Bitmap(rowID=10, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create SetColumnAttrs query", function()
+        local q = sampleIndex:setColumnAttrs(10, {foo="bar"})
+        local target = "SetColumnAttrs(columnID=10, foo=\"bar\")"
+        assert.same(target, q:serialize())
+    end)
+
     it("can deep copy", function()
         local s1 = orm.Schema()
-        local i1 = s1:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
+        local i1 = s1:index("index-1")
         local f11 = i1:frame("frame-11")
         local f12 = i1:frame("frame-12")
         assert.same(i1, i1:copy())
 
         local s2 = orm.Schema()
-        local i2 = s2:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
+        local i2 = s2:index("index-1")
         assert.same(i2, i1:copy(false))
+    end)
 
+    it("can create a batch query", function()
+        local q = sampleIndex:batchQuery(
+            sampleFrame:bitmap(10),
+            sampleFrame:bitmap(20)
+        )
+        local target = "Bitmap(rowID=10, frame='sample-frame')Bitmap(rowID=20, frame='sample-frame')"
+        assert.same(target, q:serialize())
     end)
 end)
 
@@ -144,4 +201,16 @@ describe("Frame", function()
         local q = frame:setbit(5, 10, ts)
         assert.same("SetBit(rowID=5, frame='sample-frame', columnID=10, timestamp='2017-04-24T12:14')", q:serialize())
     end)
+
+    it("can create clearbit query", function()
+        local q = frame:clearbit(5, 10)
+        assert.same("ClearBit(rowID=5, frame='sample-frame', columnID=10)", q:serialize())
+    end)
+    
+    it("can create SetRowAttrs query", function()
+        local q = frame:setRowAttrs(10, {foo="bar"})
+        local target = "SetRowAttrs(rowID=10, frame='sample-frame', foo=\"bar\")"
+        assert.same(target, q:serialize())
+    end)
+
 end)
