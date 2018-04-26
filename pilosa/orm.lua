@@ -38,6 +38,7 @@ local Object = require "pilosa.classic"
 local Schema = Object:extend()
 local Index = Object:extend()
 local Frame = Object:extend()
+local RangeField = Object:extend(   )
 local PQLQuery = Object:extend()
 local PQLBatchQuery = Object:extend()
 
@@ -68,7 +69,7 @@ function Schema:new()
 end
 
 function Schema:index(name)
-    index = self.indexes[name]
+    local index = self.indexes[name]
     if index == nil then
         index = Index(name)
         self.indexes[name] = index
@@ -169,8 +170,8 @@ function Index:count(bitmap)
     return PQLQuery(self, string.format("Count(%s)", bitmap:serialize()))
 end
 
-function Index:setColumnAttrs(columnID, attrs)
-    local query = string.format("SetColumnAttrs(columnID=%d, %s)", columnID, createAttributesString(attrs))
+function Index:setColumnAttrs(col, attrs)
+    local query = string.format("SetColumnAttrs(col=%d, %s)", col, createAttributesString(attrs))
     return PQLQuery(self, query)
 end
 
@@ -203,6 +204,9 @@ function Frame:new(index, name, options)
         cacheType = options.cacheType or CacheType.DEFAULT,
         cacheSize = options.cacheSize or 0
     }
+    -- frames is a weak table
+    self.fields = {}
+    setmetatable(self.fields, { __mode = "v" })
 end
 
 function Frame:copy()
@@ -213,22 +217,22 @@ function Frame:copy()
     })
 end
 
-function Frame:bitmap(rowID)
-    local query = string.format("Bitmap(rowID=%d, frame='%s')", rowID, self.name)
+function Frame:bitmap(row)
+    local query = string.format("Bitmap(row=%d, frame='%s')", row, self.name)
     return PQLQuery(self.index, query)
 end
 
-function Frame:setbit(rowID, columnID, timestamp)
+function Frame:setbit(row, col, timestamp)
     local ts = ""
     if timestamp ~= nil then
         ts = string.format(", timestamp='%s'", os.date(TIME_FORMAT, timestamp))
     end
-    local query = string.format("SetBit(rowID=%d, frame='%s', columnID=%d%s)", rowID, self.name, columnID, ts)
+    local query = string.format("SetBit(row=%d, frame='%s', col=%d%s)", row, self.name, col, ts)
     return PQLQuery(self.index, query)
 end
 
-function Frame:clearbit(rowID, columnID)
-    local query = string.format("ClearBit(rowID=%d, frame='%s', columnID=%d)", rowID, self.name, columnID)
+function Frame:clearbit(row, col)
+    local query = string.format("ClearBit(row=%d, frame='%s', col=%d)", row, self.name, col)
     return PQLQuery(self.index, query)
 end
 
@@ -236,18 +240,27 @@ function Frame:topn(n, bitmap)
     return topn(self, n, bitmap, false)
 end
 
-function Frame:range(rowID, startTimestamp, endTimestamp)
+function Frame:range(row, startTimestamp, endTimestamp)
     local startStr = os.date(TIME_FORMAT, startTimestamp)
     local endStr = os.date(TIME_FORMAT, endTimestamp)
     local query = string.format("Range(row=%d, frame='%s', start='%s', end='%s')",
-        rowID, self.name, startStr, endStr)
+        row, self.name, startStr, endStr)
     return PQLQuery(self.index, query)
 end
 
-function Frame:setRowAttrs(rowID, attrs)
-    local query = string.format("SetRowAttrs(rowID=%d, frame='%s', %s)",
-        rowID, self.name, createAttributesString(attrs))
+function Frame:setRowAttrs(row, attrs)
+    local query = string.format("SetRowAttrs(row=%d, frame='%s', %s)",
+        row, self.name, createAttributesString(attrs))
     return PQLQuery(self, query)
+end
+
+function Frame:field(name)
+    local field = self.fields[name]
+    if field == nil then
+        field = RangeField(self, name)
+        self.fields[name] = field
+    end
+    return field
 end
 
 function topn(frame, n, bitmap)
@@ -261,6 +274,74 @@ function topn(frame, n, bitmap)
     local query = string.format("TopN(%s)", table.concat(parts, ","))
     return PQLQuery(frame.index, query)
 end
+
+
+function RangeField:new(frame, name)
+    validator.ensureValidLabel(name)
+    self.frame = frame
+    self.name = name
+end
+
+function RangeField:lt(n)
+    return fieldBinaryOperation(self, "<", n)
+end
+
+function RangeField:lte(n)
+    return fieldBinaryOperation(self, "<=", n)
+end
+
+function RangeField:gt(n)
+    return fieldBinaryOperation(self, ">", n)
+end
+
+function RangeField:gte(n)
+    return fieldBinaryOperation(self, ">=", n)
+end
+
+function RangeField:equals(n)
+    return fieldBinaryOperation(self, "==", n)
+end
+
+function RangeField:notEquals(n)
+    return fieldBinaryOperation(self, "!=", n)
+end
+
+function RangeField:notNull()
+    qry = string.format("Range(frame='%s', %s != null)", self.frame.name, self.name)
+    return PQLQuery(self.frame.index, qry)
+end
+
+function RangeField:between(a, b)
+    qry = string.format("Range(frame='%s', %s >< [%d,%d])", self.frame.name, self.name, a, b)
+    return PQLQuery(self.frame.index, qry)
+end
+
+function RangeField:sum(bitmap)
+    return fieldValQuery(self, "Sum", bitmap)
+end
+
+function RangeField:min(bitmap)
+    return fieldValQuery(self, "Min", bitmap)
+end
+
+function RangeField:max(bitmap)
+    return fieldValQuery(self, "Max", bitmap)
+end
+
+function fieldBinaryOperation(field, op, n)
+    qry = string.format("Range(frame='%s', %s %s %d)", field.frame.name, field.name, op, n)
+    return PQLQuery(field.frame.index, qry)
+end
+
+function fieldValQuery(field, op, bitmap)
+	bitmapStr = ""
+	if bitmap ~= nil then
+		bitmapStr = string.format("%s, ", bitmap:serialize())
+    end
+	qry = string.format("%s(%sframe='%s', field='%s')", op, bitmapStr, field.frame.name, field.name)
+	return PQLQuery(field.frame.index, qry)
+end
+
 
 function PQLQuery:new(index, pql)
     self.pql = pql

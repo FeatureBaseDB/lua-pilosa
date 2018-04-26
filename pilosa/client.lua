@@ -108,19 +108,16 @@ function PilosaClient:status()
 end
 
 function PilosaClient:schema()
-    local status = self:status()
-    local nodes = status["Nodes"]
+    local response = httpRequest(self, "GET", "/schema")
+    local indexes = json.decode(response)["indexes"]
     local schema = orm.Schema()
-    for i, indexInfo in ipairs(nodes[1]["Indexes"] or {}) do
-        local meta = indexInfo["Meta"]
-        local index = schema:index(indexInfo["Name"])
-        for i, frameInfo in ipairs(indexInfo["Frames"] or {}) do
-            meta = frameInfo["Meta"]
-            index:frame(frameInfo["Name"], {
-                cacheSize = meta["CacheSize"],
-                cacheType = meta["CacheType"],
-                inverseEnabled = meta["InverseEnabled"] or false,
-                timeQuantum = meta["TimeQuantum"] or orm.TimeQuantum.NONE
+    for i, indexInfo in ipairs(indexes or {}) do
+        local index = schema:index(indexInfo["name"])
+        for i, frameInfo in ipairs(indexInfo["frames"] or {}) do
+            index:frame(frameInfo["name"], {
+                cacheSize = frameInfo["cacheSize"],
+                cacheType = frameInfo["cacheType"],
+                timeQuantum = frameInfo["timeQuantum"] or orm.TimeQuantum.NONE
             })
         end
     end
