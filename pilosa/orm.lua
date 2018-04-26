@@ -200,7 +200,6 @@ function Frame:new(index, name, options)
     options = options or {}
     self.options = {
         timeQuantum = options.timeQuantum or TimeQuantum.NONE,
-        inverseEnabled = options.inverseEnabled or false,
         cacheType = options.cacheType or CacheType.DEFAULT,
         cacheSize = options.cacheSize or 0
     }
@@ -209,7 +208,6 @@ end
 function Frame:copy()
     return Frame(self.index, self.name, {
         timeQuantum = self.options.timeQuantum,
-        inverseEnabled = self.options.inverseEnabled,
         cacheType = self.options.cacheType,
         cacheSize = self.options.cacheSize
     })
@@ -217,11 +215,6 @@ end
 
 function Frame:bitmap(rowID)
     local query = string.format("Bitmap(rowID=%d, frame='%s')", rowID, self.name)
-    return PQLQuery(self.index, query)
-end
-
-function Frame:inverseBitmap(columnID)
-    local query = string.format("Bitmap(columnID=%d, frame='%s')", columnID, self.name)
     return PQLQuery(self.index, query)
 end
 
@@ -243,16 +236,12 @@ function Frame:topn(n, bitmap)
     return topn(self, n, bitmap, false)
 end
 
-function Frame:inverseTopn(n, bitmap)
-    return topn(self, n, bitmap, true)
-end
-
 function Frame:range(rowID, startTimestamp, endTimestamp)
-    return range(self, "rowID", rowID, startTimestamp, endTimestamp)
-end
-
-function Frame:inverseRange(columnID, startTimestamp, endTimestamp)
-    return range(self, "columnID", columnID, startTimestamp, endTimestamp)
+    local startStr = os.date(TIME_FORMAT, startTimestamp)
+    local endStr = os.date(TIME_FORMAT, endTimestamp)
+    local query = string.format("Range(row=%d, frame='%s', start='%s', end='%s')",
+        rowID, self.name, startStr, endStr)
+    return PQLQuery(self.index, query)
 end
 
 function Frame:setRowAttrs(rowID, attrs)
@@ -261,28 +250,15 @@ function Frame:setRowAttrs(rowID, attrs)
     return PQLQuery(self, query)
 end
 
-function topn(frame, n, bitmap, inverse)
-    local inverseStr = "false"
-    if inverse then
-        inverseStr = true
-    end
+function topn(frame, n, bitmap)
     local parts = {
         string.format("frame='%s'", frame.name),
         string.format("n=%d", n),
-        string.format("inverse=%s", inverseStr)
     }
     if bitmap ~= nil then
         table.insert(parts, 1, bitmap:serialize())
     end
     local query = string.format("TopN(%s)", table.concat(parts, ","))
-    return PQLQuery(frame.index, query)
-end
-
-function range(frame, label, rowColumnID, startTimestamp, endTimestamp)
-    local startStr = os.date(TIME_FORMAT, startTimestamp)
-    local endStr = os.date(TIME_FORMAT, endTimestamp)
-    local query = string.format("Range(%s=%d, frame='%s', start='%s', end='%s')",
-        label, rowColumnID, frame.name, startStr, endStr)
     return PQLQuery(frame.index, query)
 end
 

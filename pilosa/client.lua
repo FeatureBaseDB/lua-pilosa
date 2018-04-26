@@ -97,7 +97,7 @@ function PilosaClient:deleteIndex(index)
     httpRequest(self, "DELETE", path)
 end
 
-function PilosaClient:deleteFrame(index)
+function PilosaClient:deleteFrame(frame)
     local path = string.format("/index/%s/frame/%s", frame.index.name, frame.name)
     httpRequest(self, "DELETE", path)
 end    

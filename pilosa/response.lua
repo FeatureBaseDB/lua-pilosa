@@ -67,7 +67,7 @@ function QueryResult:new(result)
     local countItems = {}
     if #result > 0 and result[1].id ~= nil and result[1].count ~= nil then
         for i, item in ipairs(result) do
-            table.insert(countItems, CountResultItem(item))
+            countItems[i] = CountResultItem(item.id, item.count)
         end
     end
     self.countItems = countItems

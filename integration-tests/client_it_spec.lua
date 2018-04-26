@@ -42,8 +42,7 @@ describe("PilosaClient", function()
     local frame = index:frame("test-frame")
 
     before_each(function()
-        client:ensureIndex(index)
-        client:ensureFrame(frame)
+        client:syncSchema(schema)
     end)
 
     after_each(function()
@@ -59,11 +58,23 @@ describe("PilosaClient", function()
     it("can send a query", function()
         local client = getClient()
         client:query(frame:setbit(10, 20))        
+        
         local response1 = client:query(frame:bitmap(10))
         local bitmap = response1.result.bitmap
         assert.equals(0, #bitmap.attributes)
         assert.equals(1, table.getn(bitmap.bits))
         assert.same(20, bitmap.bits[1])
+
+        local response2 = client:query(frame:topn(1))
+        local countItems = response2.result.countItems
+        assert.equals(1, #countItems)
+        assert.equals(10, countItems[1].id)
+        assert.equals(1, countItems[1].count)
+    end)
+
+    it("fails on query error", function()
+        local client = getClient()
+        assert.has_error(function() client:query(index:rawQuery("foo bar")) end)
     end)
 
     it("can read status", function()
@@ -86,6 +97,15 @@ describe("PilosaClient", function()
         local index12 = schema1:index("diff-index2")
         index12:frame("frame2-1")
         client:syncSchema(schema1)
+    end)
+
+    it("can delete a frame", function()
+        local client = getClient()
+        local frame1 = index:frame("temp-frame")
+        client:syncSchema(schema)
+        client:deleteFrame(frame1)
+        local schema2 = client:schema()
+        assert.is_true(schema2.indexes[index.name].frames["temp-frame"] == nil)
     end)
 end)
 

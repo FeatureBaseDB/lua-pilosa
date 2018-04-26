@@ -180,29 +180,23 @@ describe("Frame", function()
         assert.same(f11, clone)
     end)
 
-    it("can create bitmap query", function()
+    it("can create Bitmap query", function()
         local q = frame:bitmap(5)
         assert.same("Bitmap(rowID=5, frame='sample-frame')", q:serialize())
     end)
 
-    it("can create inverse bitmap query", function()
-        local q = frame:inverseBitmap(5)
-        assert.same("Bitmap(columnID=5, frame='sample-frame')", q:serialize())
-    end)
-
-    it("can create setbit query", function()
+    it("can create SetBit query", function()
         local q = frame:setbit(5, 10)
         assert.same("SetBit(rowID=5, frame='sample-frame', columnID=10)", q:serialize())
     end)
 
-    it("can create setbit query wıth timestamp", function()
-        -- timestamp = datetime(2017, 4, 24, 12, 14)
+    it("can create SetBit query with timestamp", function()
         local ts = os.time{year=2017, month=4, day=24, hour=12, min=14}
         local q = frame:setbit(5, 10, ts)
         assert.same("SetBit(rowID=5, frame='sample-frame', columnID=10, timestamp='2017-04-24T12:14')", q:serialize())
     end)
 
-    it("can create clearbit query", function()
+    it("can create ClearBit query", function()
         local q = frame:clearbit(5, 10)
         assert.same("ClearBit(rowID=5, frame='sample-frame', columnID=10)", q:serialize())
     end)
@@ -210,6 +204,14 @@ describe("Frame", function()
     it("can create SetRowAttrs query", function()
         local q = frame:setRowAttrs(10, {foo="bar"})
         local target = "SetRowAttrs(rowID=10, frame='sample-frame', foo=\"bar\")"
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create Range query", function()
+        local startTime = os.time{year=1970, month=1, day=1, hour=0, min=0}
+        local endTime = os.time{year=2000, month=2, day=2, hour=3, min=4}
+        local q = frame:range(10, startTime, endTime)
+        local target = "Range(row=10, frame='sample-frame', start='1970-01-01T00:00', end='2000-02-02T03:04')"
         assert.same(target, q:serialize())
     end)
 
