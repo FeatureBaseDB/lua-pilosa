@@ -8,6 +8,7 @@ before_install:
   - python hererocks.py lua5.1 -l5.1 -rlatest
   - source lua5.1/bin/activate
 install:
-  - luarocks install luasocket busted
+  - luarocks install luasocket
+  - luarocks install busted
 script:
   - make test-all
