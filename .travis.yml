@@ -10,5 +10,8 @@ before_install:
 install:
   - luarocks install luasocket
   - luarocks install busted
+  - luarocks install luacov-coveralls
 script:
-  - make test-all
+  - make cover
+after_success:
+  - luacov-coveralls
