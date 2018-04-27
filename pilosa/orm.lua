@@ -210,11 +210,15 @@ function Frame:new(index, name, options)
 end
 
 function Frame:copy()
-    return Frame(self.index, self.name, {
+    local f = Frame(self.index, self.name, {
         timeQuantum = self.options.timeQuantum,
         cacheType = self.options.cacheType,
         cacheSize = self.options.cacheSize
     })
+    for k, field in pairs(self.fields) do
+        f.fields[k] = field
+    end
+    return f
 end
 
 function Frame:bitmap(row)
