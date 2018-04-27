@@ -1,6 +1,7 @@
 # Lua Client for Pilosa
 
 <a href="https://github.com/pilosa"><img src="https://img.shields.io/badge/pilosa-master-blue.svg"></a>
+<a href="https://travis-ci.org/pilosa/lua-pilosa"><img src="https://api.travis-ci.org/pilosa/lua-pilosa.svg?branch=master"></a>
 
 <img src="https://www.pilosa.com/img/le.svg" style="float: right" align="right" height="301">
 

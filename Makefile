@@ -9,5 +9,3 @@ test-all:
 cover:
 	rm -f luacov.*
 	busted --coverage tests integration-tests
-	luacov pilosa/*.lua
-	cat luacov.report.out
