@@ -2,6 +2,8 @@
 
 <a href="https://github.com/pilosa"><img src="https://img.shields.io/badge/pilosa-master-blue.svg"></a>
 <a href="https://travis-ci.org/pilosa/lua-pilosa"><img src="https://api.travis-ci.org/pilosa/lua-pilosa.svg?branch=master"></a>
+<a href='https://coveralls.io/github/pilosa/lua-pilosa?branch=master'><img src='https://coveralls.io/repos/github/pilosa/lua-pilosa/badge.svg?branch=master' alt="Coverage Status" /></a>
+
 
 <img src="https://www.pilosa.com/img/le.svg" style="float: right" align="right" height="301">
 
