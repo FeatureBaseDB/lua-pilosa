@@ -35,7 +35,7 @@ local URI = require "pilosa.client".URI
 local QueryOptions = require "pilosa.client".QueryOptions
 local orm = require "pilosa.orm"
 
-describe("pilosa.client.URI class", function()
+describe("URI", function()
     local URI = require "pilosa.client".URI
 
     it ("returns default URI", function()
@@ -61,6 +61,11 @@ describe("pilosa.client.URI class", function()
     it("parses port only", function()
         local uri = URI:address(":5888")
         compareURI(uri, "http", "localhost", 5888)
+    end)
+
+    it("parses scheme only", function()
+        local uri = URI:address("https://")
+        compareURI(uri, "https", "localhost", 10101)
     end)
 
     it("parses host port", function()

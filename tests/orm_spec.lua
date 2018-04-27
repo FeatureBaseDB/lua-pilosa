@@ -81,31 +81,92 @@ describe("Index", function()
         assert.equals(frame, frame2)
     end)
 
-    it("index can create raw query", function()
+    it("can create raw query", function()
         local q = index:rawQuery("No validation whatsoever for raw queries")
         assert.same("No validation whatsoever for raw queries", q:serialize())
         assert.equals(index, q.index)
     end)
 
-    it("index can create Union query", function()
+    it("can create Union query", function()
         local b1 = sampleFrame:bitmap(10)
         local b2 = sampleFrame:bitmap(20)
         local q = sampleIndex:union(b1, b2)
-        local target = "Union(Bitmap(rowID=10, frame='sample-frame'), Bitmap(rowID=20, frame='sample-frame'))"
+        local target = "Union(Bitmap(row=10, frame='sample-frame'), Bitmap(row=20, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create Intersect query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local b2 = sampleFrame:bitmap(20)
+        local q = sampleIndex:intersect(b1, b2)
+        local target = "Intersect(Bitmap(row=10, frame='sample-frame'), Bitmap(row=20, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("cannot create Intersect query with no arguments", function()
+        assert.has_errors(function()sampleIndex:intersect() end)
+    end)
+
+    it("can create Difference query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local b2 = sampleFrame:bitmap(20)
+        local q = sampleIndex:difference(b1, b2)
+        local target = "Difference(Bitmap(row=10, frame='sample-frame'), Bitmap(row=20, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("cannot create Difference query with no arguments", function()
+        assert.has_errors(function()sampleIndex:difference() end)
+    end)
+
+    it("can create Xor query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local b2 = sampleFrame:bitmap(20)
+        local q = sampleIndex:xor(b1, b2)
+        local target = "Xor(Bitmap(row=10, frame='sample-frame'), Bitmap(row=20, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("cannot create Xor query with no arguments", function()
+        assert.has_errors(function()sampleIndex:xor() end)
+    end)
+
+    it("can create Count query", function()
+        local b1 = sampleFrame:bitmap(10)
+        local q = sampleIndex:count(b1)
+        local target = "Count(Bitmap(row=10, frame='sample-frame'))"
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create SetColumnAttrs query", function()
+        local q = sampleIndex:setColumnAttrs(10, {foo="bar"})
+        local target = "SetColumnAttrs(col=10, foo=\"bar\")"
         assert.same(target, q:serialize())
     end)
 
     it("can deep copy", function()
         local s1 = orm.Schema()
-        local i1 = s1:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
+        local i1 = s1:index("index-1")
         local f11 = i1:frame("frame-11")
         local f12 = i1:frame("frame-12")
         assert.same(i1, i1:copy())
 
         local s2 = orm.Schema()
-        local i2 = s2:index("index-1", {timeQuantum=orm.TimeQuantum.YEAR_MONTH})
+        local i2 = s2:index("index-1")
         assert.same(i2, i1:copy(false))
+    end)
 
+    it("can create a batch query", function()
+        local q = sampleIndex:batchQuery(
+            sampleFrame:bitmap(10),
+            sampleFrame:bitmap(20)
+        )
+        local target = "Bitmap(row=10, frame='sample-frame')Bitmap(row=20, frame='sample-frame')"
+        assert.same(target, q:serialize())
+
+        q:add(sampleFrame:bitmap(30))
+        target = "Bitmap(row=10, frame='sample-frame')Bitmap(row=20, frame='sample-frame')Bitmap(row=30, frame='sample-frame')"
+        assert.same(target, q:serialize())
     end)
 end)
 
@@ -123,25 +184,111 @@ describe("Frame", function()
         assert.same(f11, clone)
     end)
 
-    it("can create bitmap query", function()
+    it("can create Bitmap query", function()
         local q = frame:bitmap(5)
-        assert.same("Bitmap(rowID=5, frame='sample-frame')", q:serialize())
+        assert.same("Bitmap(row=5, frame='sample-frame')", q:serialize())
     end)
 
-    it("can create inverse bitmap query", function()
-        local q = frame:inverseBitmap(5)
-        assert.same("Bitmap(columnID=5, frame='sample-frame')", q:serialize())
-    end)
-
-    it("can create setbit query", function()
+    it("can create SetBit query", function()
         local q = frame:setbit(5, 10)
-        assert.same("SetBit(rowID=5, frame='sample-frame', columnID=10)", q:serialize())
+        assert.same("SetBit(row=5, frame='sample-frame', col=10)", q:serialize())
     end)
 
-    it("can create setbit query wıth timestamp", function()
-        -- timestamp = datetime(2017, 4, 24, 12, 14)
+    it("can create SetBit query with timestamp", function()
         local ts = os.time{year=2017, month=4, day=24, hour=12, min=14}
         local q = frame:setbit(5, 10, ts)
-        assert.same("SetBit(rowID=5, frame='sample-frame', columnID=10, timestamp='2017-04-24T12:14')", q:serialize())
+        assert.same("SetBit(row=5, frame='sample-frame', col=10, timestamp='2017-04-24T12:14')", q:serialize())
     end)
+
+    it("can create ClearBit query", function()
+        local q = frame:clearbit(5, 10)
+        assert.same("ClearBit(row=5, frame='sample-frame', col=10)", q:serialize())
+    end)
+    
+    it("can create SetRowAttrs query", function()
+        local q = frame:setRowAttrs(10, {foo="bar"})
+        local target = "SetRowAttrs(row=10, frame='sample-frame', foo=\"bar\")"
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create TopN query", function()
+        local q = frame:topn(27)
+        local target = "TopN(frame='sample-frame',n=27)"
+        assert.same(target, q:serialize())
+
+        q = frame:topn(27, frame:bitmap(10))
+        target = "TopN(Bitmap(row=10, frame='sample-frame'),frame='sample-frame',n=27)"
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create Range query", function()
+        local startTime = os.time{year=1970, month=1, day=1, hour=0, min=0}
+        local endTime = os.time{year=2000, month=2, day=2, hour=3, min=4}
+        local q = frame:range(10, startTime, endTime)
+        local target = "Range(row=10, frame='sample-frame', start='1970-01-01T00:00', end='2000-02-02T03:04')"
+        assert.same(target, q:serialize())
+    end)
+end)
+
+describe("RangeField", function()
+    local field = frame:field("foo")
+
+    it("can create < query", function()
+        local target = "Range(frame='sample-frame', foo < 10)"
+        assert.same(target, field:lt(10):serialize())
+    end)
+
+    it("can create <= query", function()
+        local target = "Range(frame='sample-frame', foo <= 10)"
+        assert.same(target, field:lte(10):serialize())
+    end)
+
+    it("can create > query", function()
+        local target = "Range(frame='sample-frame', foo > 10)"
+        assert.same(target, field:gt(10):serialize())
+    end)
+
+    it("can create >= query", function()
+        local target = "Range(frame='sample-frame', foo >= 10)"
+        assert.same(target, field:gte(10):serialize())
+    end)
+
+    it("can create == query", function()
+        local target = "Range(frame='sample-frame', foo == 10)"
+        assert.same(target, field:equals(10):serialize())
+    end)
+
+    it("can create != query", function()
+        local target = "Range(frame='sample-frame', foo != 10)"
+        assert.same(target, field:notEquals(10):serialize())
+    end)
+
+    it("can create not null query", function()
+        local target = "Range(frame='sample-frame', foo != null)"
+        assert.same(target, field:notNull():serialize())
+    end)
+
+    it("can create >< query", function()
+        local target = "Range(frame='sample-frame', foo >< [10,20])"
+        assert.same(target, field:between(10, 20):serialize())
+    end)
+
+    it("can create Sum query", function()
+        local target = "Sum(Bitmap(row=10, frame='sample-frame'), frame='sample-frame', field='foo')"
+        local q = field:sum(frame:bitmap(10))
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create Min query", function()
+        local target = "Min(Bitmap(row=10, frame='sample-frame'), frame='sample-frame', field='foo')"
+        local q = field:min(frame:bitmap(10))
+        assert.same(target, q:serialize())
+    end)
+
+    it("can create Max query", function()
+        local target = "Max(Bitmap(row=10, frame='sample-frame'), frame='sample-frame', field='foo')"
+        local q = field:max(frame:bitmap(10))
+        assert.same(target, q:serialize())
+    end)
+
 end)

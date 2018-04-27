@@ -72,7 +72,7 @@ describe("validator", function()
 
     it("does not validate invalid index name", function()
         for i, name in ipairs(INVALID_INDEX_NAMES) do
-            assert.is_false(validator.validIndexName(name))
+            assert.has_error(function() validator.ensureValidIndexName(name) end)
         end
     end)
 
@@ -84,7 +84,7 @@ describe("validator", function()
 
     it("does not validate invalid frame name", function()
         for i, name in ipairs(INVALID_FRAME_NAMES) do
-            assert.is_false(validator.validFrameName(name))
+            assert.has_error(function() validator.ensureValidFrameName(name) end)
         end
     end)
 
@@ -96,7 +96,7 @@ describe("validator", function()
 
     it("does not validate invalid label", function()
         for i, label in ipairs(INVALID_LABELS) do
-            assert.is_false(validator.validLabel(label))
+            assert.has_error(function() validator.ensureValidLabel(label) end)
         end
     end)
 end)
