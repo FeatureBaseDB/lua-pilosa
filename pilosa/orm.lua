@@ -362,6 +362,7 @@ function PQLBatchQuery:new(index, ...)
         table.insert(queries, v:serialize())
     end
     self.queries = queries
+    self.index = index
 end
 
 function PQLBatchQuery:add(query)
